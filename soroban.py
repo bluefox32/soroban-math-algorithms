@@ -40,11 +40,17 @@ def soroban_arithmetic(num1, num2, operation):
             num2 //= 10
     
     elif operation == 'multiplication':
+        # 修正(2026-10-29): multiplier は内側のループで増え続けるため、num2 の
+        # 2桁目以降の部分積の位までずれていた。num2 の現在の桁の位 place を
+        # 別に保持し、桁ごとに multiplier をその位から始め直す
+        place = 1
         while num2:
             digit2 = num2 % 10
             num2 //= 10
             temp_result = 0
             carry = 0
+            multiplier = place
+            place *= 10
             
             num1_copy = num1
             while num1_copy or carry:
@@ -58,15 +64,25 @@ def soroban_arithmetic(num1, num2, operation):
             result = soroban_addition(result, temp_result)
     
     elif operation == 'division':
-        while num1 >= num2:
-            temp_divisor = num2
-            count = 1
-            while num1 >= temp_divisor:
-                num1 -= temp_divisor
-                result = soroban_addition(result, count * multiplier)
-                temp_divisor *= 10
-                count += 1
-            multiplier //= 10
+        # 修正(2026-10-29): 旧実装は除数を10倍するたびに count を1つ増やすだけで
+        # 位と合っておらず、multiplier も 1 から //= 10 で 0 になって商が壊れて
+        # いたため、位ごとの筆算として書き直した。最上位の位から、その位の
+        # 除数 (num2 * place) を引ける回数が商のその桁になる。余りは切り捨て、
+        # 整数の商を返す（従来の例・呼び出し側の想定に合わせた）
+        if num2 == 0:
+            raise ZeroDivisionError("division by zero")
+        
+        place = 1
+        while num2 * place * 10 <= num1:
+            place *= 10
+        
+        while place:
+            quotient_digit = 0
+            while num1 >= num2 * place:
+                num1 = soroban_subtraction(num1, num2 * place)
+                quotient_digit += 1
+            result = soroban_addition(result, quotient_digit * place)
+            place //= 10
     
     return result
 
