@@ -154,20 +154,42 @@ print(f"{num1} + {num2} = {result_add}")
 print(f"{num1} - {num2} = {result_sub}")
 
 from fractions import Fraction
+from math import gcd
+
+# 修正(2026-10-29): 分数ヘルパーは通分せず分子同士を足し（引き）、1つ目の分母を
+# 整数として加える誤った実装だったため、通分して分子を計算する形に書き直した。
+# 分子の拡大は soroban の乗算、分子の加減は soroban の加減算（絶対値ベース）で行う
+def _fraction_scaled_numerators(fraction1, fraction2):
+    common_denominator = fraction1.denominator * fraction2.denominator // gcd(fraction1.denominator, fraction2.denominator)
+    scaled1 = soroban_arithmetic(abs(fraction1.numerator), common_denominator // fraction1.denominator, 'multiplication')
+    if fraction1.numerator < 0:
+        scaled1 = -scaled1
+    scaled2 = soroban_arithmetic(abs(fraction2.numerator), common_denominator // fraction2.denominator, 'multiplication')
+    if fraction2.numerator < 0:
+        scaled2 = -scaled2
+    return scaled1, scaled2, common_denominator
+
+def _soroban_signed_add(a, b):
+    # soroban の加減算は非負整数前提のため、絶対値で計算して符号を付け直す
+    if a >= 0 and b >= 0:
+        return soroban_addition(a, b)
+    if a <= 0 and b <= 0:
+        return -soroban_addition(-a, -b)
+    if abs(a) >= abs(b):
+        return soroban_subtraction(abs(a), abs(b)) if a > 0 else -soroban_subtraction(abs(a), abs(b))
+    return soroban_subtraction(abs(b), abs(a)) if b > 0 else -soroban_subtraction(abs(b), abs(a))
 
 def soroban_fraction_addition(num1, num2):
     fraction1 = Fraction(num1)
     fraction2 = Fraction(num2)
-    result = soroban_decimal_addition(fraction1.numerator, fraction2.numerator)
-    # 修正(2026-10-29): result は float のため Fraction(result, 1) が TypeError になる。int 化して渡す
-    return Fraction(int(result), 1) + Fraction(fraction1.denominator, 1)
+    scaled1, scaled2, common_denominator = _fraction_scaled_numerators(fraction1, fraction2)
+    return Fraction(_soroban_signed_add(scaled1, scaled2), common_denominator)
 
 def soroban_fraction_subtraction(num1, num2):
     fraction1 = Fraction(num1)
     fraction2 = Fraction(num2)
-    result = soroban_decimal_subtraction(fraction1.numerator, fraction2.numerator)
-    # 修正(2026-10-29): result は float のため Fraction(result, 1) が TypeError になる。int 化して渡す
-    return Fraction(int(result), 1) - Fraction(fraction1.denominator, 1)
+    scaled1, scaled2, common_denominator = _fraction_scaled_numerators(fraction1, fraction2)
+    return Fraction(_soroban_signed_add(scaled1, -scaled2), common_denominator)
 
 # 使用例
 num1 = Fraction(3, 4)
