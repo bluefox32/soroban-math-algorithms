@@ -70,6 +70,15 @@ def soroban_arithmetic(num1, num2, operation):
     
     return result
 
+# 修正(2026-10-29): soroban_addition / soroban_subtraction が未定義のまま
+# 乗算・除算・小数処理から呼ばれていたため、soroban_arithmetic への
+# 薄いラッパーとして追加した（実装は既存の桁ごとの演算をそのまま使う）
+def soroban_addition(num1, num2):
+    return soroban_arithmetic(num1, num2, 'addition')
+
+def soroban_subtraction(num1, num2):
+    return soroban_arithmetic(num1, num2, 'subtraction')
+
 # 加算の例
 num1 = 123456789
 num2 = 987654321
@@ -134,13 +143,15 @@ def soroban_fraction_addition(num1, num2):
     fraction1 = Fraction(num1)
     fraction2 = Fraction(num2)
     result = soroban_decimal_addition(fraction1.numerator, fraction2.numerator)
-    return Fraction(result, 1) + Fraction(fraction1.denominator, 1)
+    # 修正(2026-10-29): result は float のため Fraction(result, 1) が TypeError になる。int 化して渡す
+    return Fraction(int(result), 1) + Fraction(fraction1.denominator, 1)
 
 def soroban_fraction_subtraction(num1, num2):
     fraction1 = Fraction(num1)
     fraction2 = Fraction(num2)
     result = soroban_decimal_subtraction(fraction1.numerator, fraction2.numerator)
-    return Fraction(result, 1) - Fraction(fraction1.denominator, 1)
+    # 修正(2026-10-29): result は float のため Fraction(result, 1) が TypeError になる。int 化して渡す
+    return Fraction(int(result), 1) - Fraction(fraction1.denominator, 1)
 
 # 使用例
 num1 = Fraction(3, 4)
